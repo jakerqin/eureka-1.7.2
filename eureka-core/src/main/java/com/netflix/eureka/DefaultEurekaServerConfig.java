@@ -89,6 +89,10 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
             configInstance.getStringProperty(namespace + "listAutoScalingGroupsRoleName", "ListAutoScalingGroups");
 
     public DefaultEurekaServerConfig() {
+        // 会将eureka-server.properties文件中的配置加载出来，都放到ConfdigurationManager中去，
+        // 然后在DefaultEurekaServerConfig的各种获取配置项的方法中，配置项的名字是在各个方法中硬编码的，
+        // 是从一个DynamicPropertyFactory里面去获取的，你可以认为DynamicPropertyFactory是从ConfigurationManager那儿来的，
+        // 因为ConfigurationManager中都包含了加载出来的配置了，所以DynamicPropertyFactory里，也可以获取到所有的配置项
         init();
     }
 
@@ -98,15 +102,21 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
     }
 
     private void init() {
+        // 获取当前环境，如果没有设置，就用test环境
         String env = ConfigurationManager.getConfigInstance().getString(
                 EUREKA_ENVIRONMENT, TEST);
+        // 再设置一下环境
         ConfigurationManager.getConfigInstance().setProperty(
                 ARCHAIUS_DEPLOYMENT_ENVIRONMENT, env);
 
+        // 获取要加载eureka配置文件的名字
         String eurekaPropsFile = EUREKA_PROPS_FILE.get();
         try {
-            // ConfigurationManager
-            // .loadPropertiesFromResources(eurekaPropsFile);
+            // 从配置文件中加载属性进ConfigurationManager
+            // 步骤：将eureka-server跟.properties给拼接起来了，拼接成一个eureka-server.properties，代表了eureka server的配置文件的名称。
+            // 将eureka-sesrver.properties中的配置，加载到了Properties对象中去；然后还会加载eureka-server-环境.properties中的配置，
+            // 加载到另外一个Properties中，相同属性会覆盖之前那个老的Properties中的属性
+            // 将加载出来的Properties中的配置项都放到ConfigurationManager.instant中去，由这个ConfigurationManager来管理
             ConfigurationManager
                     .loadCascadedPropertiesFromResources(eurekaPropsFile);
         } catch (IOException e) {
