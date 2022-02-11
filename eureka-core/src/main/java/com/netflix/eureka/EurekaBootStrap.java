@@ -103,7 +103,8 @@ public class EurekaBootStrap implements ServletContextListener {
 
     /**
      * Initializes Eureka, including syncing up with other Eureka peers and publishing the registry.
-     *
+	 * 初始化 Eureka，包括与其他 Eureka 对等节点同步并发布注册表
+     * servlet 容器启动后会进入这个方法
      * @see
      * javax.servlet.ServletContextListener#contextInitialized(javax.servlet.ServletContextEvent)
      */
