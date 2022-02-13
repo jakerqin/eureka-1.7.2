@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *   is started, the scheduled automatic update task is discarded (and a new one will be scheduled after the new
  *   on-demand update).
  *
+ *  注意看这个线程的run方法
  *   @author dliu
  */
 class InstanceInfoReplicator implements Runnable {
@@ -60,8 +61,11 @@ class InstanceInfoReplicator implements Runnable {
     }
 
     public void start(int initialDelayMs) {
+        // cas设置 如果是false那就设置成true
         if (started.compareAndSet(false, true)) {
             instanceInfo.setIsDirty();  // for initial register
+            // 把当前1个线程的线程池中延迟启动（默认延迟40秒）
+            // 注意看下面的run（）方法
             Future next = scheduler.schedule(this, initialDelayMs, TimeUnit.SECONDS);
             scheduledPeriodicRef.set(next);
         }
@@ -102,10 +106,14 @@ class InstanceInfoReplicator implements Runnable {
 
     public void run() {
         try {
+            // 刷新一下服务实例信息
             discoveryClient.refreshInstanceInfo();
-
+            // 拿lastDirtyTimestamp
+            // 这个lastDirtyTimestamp在启动的时候一定不是null
+            // 因为你看上面start方法中，对这个进行当前事件赋值了
             Long dirtyTimestamp = instanceInfo.isDirtyWithTime();
             if (dirtyTimestamp != null) {
+                // 在这里进行注册 尼玛的 感觉写的不好，看类名信息，是服务实例信息复制，居然还耦合了注册
                 discoveryClient.register();
                 instanceInfo.unsetIsDirty(dirtyTimestamp);
             }

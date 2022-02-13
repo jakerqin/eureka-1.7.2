@@ -198,6 +198,7 @@ public class ApplicationInfoManager {
      * see {@link InstanceInfo#getHostName()} for explanation on why the hostname is used as the default address
      */
     public void refreshDataCenterInfoIfRequired() {
+        // 从服务实例中拿主机名
         String existingAddress = instanceInfo.getHostName();
 
         String newAddress;
@@ -208,7 +209,7 @@ public class ApplicationInfoManager {
             newAddress = config.getHostName(true);
         }
         String newIp = config.getIpAddress();
-
+        // 如果两个主机名不一致，那就刷新主机名
         if (newAddress != null && !newAddress.equals(existingAddress)) {
             logger.warn("The address changed from : {} => {}", existingAddress, newAddress);
 

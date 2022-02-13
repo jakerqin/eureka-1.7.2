@@ -398,8 +398,11 @@ public class DiscoveryClient implements EurekaClient {
                             .setDaemon(true)
                             .build()
             );  // use direct handoff
-            // 支持底层的eureka client跟eureka server进行网络通信的组件，对网络通信组件进行了一些初始化的操作
+            // 网络通信组件 支持底层的eureka client跟eureka server进行网络通信的组件
             eurekaTransport = new EurekaTransport();
+            // 对网络通信组件进行了一些初始化的操作
+            // 其实这个方法就是初始化eurekaTransport组件
+            // 你看它把这个方法名命名的，误导，看的想吐
             scheduleServerEndpointTask(eurekaTransport, args);
 
             AzToRegionMapper azToRegionMapper;
@@ -417,9 +420,15 @@ public class DiscoveryClient implements EurekaClient {
         }
 
         //如果要抓取注册表的话，在这里就会去抓取注册表了，但是如果说你配置了不抓取，那么这里就不抓取了
-        if (clientConfig.shouldFetchRegistry() && !fetchRegistry(false)) {
+        if (clientConfig.shouldFetchRegistry() &&
+                // fetchRegistry方法抓取注册表信息
+                !fetchRegistry(false)) {
+            // 如果抓取失败，从备用抓取
             fetchRegistryFromBackup();
         }
+        // 按理说抓取完注册信息，应该就开始注册了，但是怎么都找不到注册的代码
+        // 而下面就开始启动定时任务了，就很懵
+        // 其实就是在开始定时任务那块进行注册的initScheduledTasks
 
         // call and execute the pre registration handler before all background tasks (inc registration) is started
         if (this.preRegistrationHandler != null) {
@@ -429,9 +438,11 @@ public class DiscoveryClient implements EurekaClient {
         // 去执行一个CacheRefreshThread，给放那个调度线程池里去了；如果要向eureka server进行注册的话，会搞一个定时任务，
         // 每隔一定时间发送心跳，执行一个HeartbeatThread；创建了服务实例副本传播器，将自己作为一个定时任务进行调度；
         // 创建了服务实例的状态变更的监听器，如果你配置了监听，那么就会注册监听器
+        // 包含向eureka server进行注册的代码
         initScheduledTasks();
 
         try {
+            // 给自己注册一个监控
             Monitors.registerObject(this);
         } catch (Throwable e) {
             logger.warn("Cannot register timers", e);
@@ -454,7 +465,7 @@ public class DiscoveryClient implements EurekaClient {
         Collection<?> additionalFilters = args == null
                 ? Collections.emptyList()
                 : args.additionalFilters;
-        // jersey 网络通信的组件 http【
+        // jersey 网络通信的组件 http
         EurekaJerseyClient providedJerseyClient = args == null
                 ? null
                 : args.eurekaJerseyClient;
@@ -817,6 +828,7 @@ public class DiscoveryClient implements EurekaClient {
         logger.info(PREFIX + appPathIdentifier + ": registering service...");
         EurekaHttpResponse<Void> httpResponse;
         try {
+            // 用eurekaTransport这个网络组件来进行注册
             httpResponse = eurekaTransport.registrationClient.register(instanceInfo);
         } catch (Exception e) {
             logger.warn("{} - registration failed {}", PREFIX + appPathIdentifier, e.getMessage(), e);
@@ -1313,7 +1325,8 @@ public class DiscoveryClient implements EurekaClient {
             if (clientConfig.shouldOnDemandUpdateStatusChange()) {
                 applicationInfoManager.registerStatusChangeListener(statusChangeListener);
             }
-            // 服务实例副本传递-》线程启动
+            // 服务实例副本传递 -> 线程启动
+            // 进行向eureka server进行注册
             instanceInfoReplicator.start(clientConfig.getInitialInstanceInfoReplicationIntervalSeconds());
         } else {
             logger.info("Not registering with Eureka server per configuration");
@@ -1380,13 +1393,17 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Refresh the current local instanceInfo. Note that after a valid refresh where changes are observed, the
      * isDirty flag on the instanceInfo is set to true
+     * // 刷新一下服务实例信息
      */
     void refreshInstanceInfo() {
+        // 重新拿一次主机名，如果有变更那就更新
         applicationInfoManager.refreshDataCenterInfoIfRequired();
+        // 重新拿租约信息，变更就刷新
         applicationInfoManager.refreshLeaseInfoIfRequired();
 
         InstanceStatus status;
         try {
+            // 健康检查拿到状态
             status = getHealthCheckHandler().getStatus(instanceInfo.getStatus());
         } catch (Exception e) {
             logger.warn("Exception from healthcheckHandler.getStatus, setting status to DOWN", e);
@@ -1394,6 +1411,7 @@ public class DiscoveryClient implements EurekaClient {
         }
 
         if (null != status) {
+            // 设置服务实例状态
             applicationInfoManager.setInstanceStatus(status);
         }
     }
