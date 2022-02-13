@@ -232,7 +232,7 @@ public class EurekaClientServerRestIntegrationTest {
     }
 
     private static void startServer() throws Exception {
-        // 提供的测试方法是通过路径找一个war包，然后启动，这就需要我们先打好一个war包，不好用，就不用
+    	// 自带的逻辑是通过查找lib目录下的war包来启动的，太麻烦了，不实用这种
 //        File warFile = findWar();
 //
 //        server = new Server(8080);
@@ -245,16 +245,17 @@ public class EurekaClientServerRestIntegrationTest {
 //        server.start();
 //
 //        eurekaServiceUrl = "http://localhost:8080/v2";
-        server = new Server(8080);
 
-        WebAppContext webAppCtx = new WebAppContext(new File("./eureka-server/src/main/webapp").getAbsolutePath(), "/");
-        webAppCtx.setDescriptor(new File("./eureka-server/src/main/webapp/WEB-INF/web.xml").getAbsolutePath());
-        webAppCtx.setResourceBase(new File("./eureka-server/src/main/resources").getAbsolutePath());
-        webAppCtx.setClassLoader(Thread.currentThread().getContextClassLoader());
-        server.setHandler(webAppCtx);
-        server.start();
+		server = new Server(8080);
 
-        eurekaServiceUrl = "http://localhost:8080/v2";
+		WebAppContext webAppCtx = new WebAppContext(new File("./eureka-server/src/main/webapp").getAbsolutePath(), "/");
+		webAppCtx.setDescriptor(new File("./eureka-server/src/main/webapp/WEB-INF/web.xml").getAbsolutePath());
+		webAppCtx.setResourceBase(new File("./eureka-server/src/main/resources").getAbsolutePath());
+		webAppCtx.setClassLoader(Thread.currentThread().getContextClassLoader());
+		server.setHandler(webAppCtx);
+		server.start();
+
+		eurekaServiceUrl = "http://localhost:8080/v2";
     }
 
     private static File findWar() {
