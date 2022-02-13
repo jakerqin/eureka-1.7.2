@@ -112,7 +112,15 @@ public class EurekaBootStrap implements ServletContextListener {
         try {
             // 初始化eureka-server的环境——配置加载进内存、数据中心、运行环境
             initEurekaEnvironment();
-            //
+            // 读取eureka-server.properties配置文件
+            // 将自己作为服务实例，从eureka-client.properties中读取服务实例配置，构造服务实例信息（InstanceInfo）构造服务实例管理器（ApplicationInfoManager）
+            // 将自己作为eureka client：从eureka-client.properties中读取eureka client配置，基于InstanceInfo和eureka client配置构造EurekaClient
+            // 构造感知eureka server集群的注册表 peerAwareInstanceRegistry
+            // 构造eureka server 集群的信息 PeerEurekaNodes
+            // 基于eureka server配置、注册表、eureka server集群、服务实例，来构造一个eureka server上下文 EurekaServerContext
+            // EurekaServerContext进行初始化 1。更新eureka server集群信息   2。基于eureka server 集群信息初始化注册表
+            // 从相邻的eureka server节点拷贝注册表
+            // 注册监控
             initEurekaServerContext();
 
             ServletContext sc = event.getServletContext();
@@ -156,14 +164,14 @@ public class EurekaBootStrap implements ServletContextListener {
         // 第一步: 加载eureka-server.properties文件中的配置
         // eureka-sever.properties文件里，都是一个一个的key=value的很多的配置项，
         // 肯定是将这些key-value格式的配置项加载到内存的Properties对象去存放，Map。
-        // 一般来说，如果让我们自己来设计这个读取properties文件的配置的代码，也许我们就是做到将配置加载到Properties对象中就结束了。
+        // 一般来说，如果让我自己来设计这个读取properties文件的配置的代码，也许我就是做到将配置加载到Properties对象中就结束了。
         // 但是eureka-server这里，使用了另外一种思想，没有用大量的常量(频繁变动的项目使用大量的常量通过一个get方法获取比较适合)，
         // 而是针对配置定义了一个接口，接口里通过方法暴露了大量的配置项获取的方法，
         // 直接通过这个接口来获取你需要的配置项，即可。
-        //EurekaServerConfig，代表了eureka-server需要的所有的配置项，通过接口定义了大量的方法，让你可以从这里获取所有你需要的配置
+        // EurekaServerConfig，代表了eureka-server需要的所有的配置项，通过接口定义了大量的方法，让你可以从这里获取所有你需要的配置
         EurekaServerConfig eurekaServerConfig = new DefaultEurekaServerConfig();
 
-        // For backward compatibility
+        // For backward compatibility 为了向后兼容
         JsonXStream.getInstance().registerConverter(new V1AwareInstanceInfoConverter(), XStream.PRIORITY_VERY_HIGH);
         XmlXStream.getInstance().registerConverter(new V1AwareInstanceInfoConverter(), XStream.PRIORITY_VERY_HIGH);
 
@@ -171,18 +179,37 @@ public class EurekaBootStrap implements ServletContextListener {
         logger.info(eurekaServerConfig.getJsonCodecName());
         ServerCodecs serverCodecs = new DefaultServerCodecs(eurekaServerConfig);
 
-        // 第二步：初始化eureka-server内部的一个eureka-client(用来跟其他的eureka-server节点进行注册和通信)
+        // 第二步：初始化ApplicationInfoManager
         ApplicationInfoManager applicationInfoManager = null;
 
+        // 第三步：初始化eureka-server内部的一个eureka-client(用来跟其他的eureka-server节点进行注册和通信)
         if (eurekaClient == null) {
-            EurekaInstanceConfig instanceConfig = isCloud(ConfigurationManager.getDeploymentContext())
+            // 创建ApplicationInfoManager需要先创建一个EurekaInstanceConfig
+
+            // EurekaInstanceConfig，就是将eureka-client.properties文件中的配置加载到ConfigurationManager中去，
+            // 然后基于EurekaInstanceConfig对外暴露的接口来获取这个eureka-client.properties文件中的一些配置项的读取，
+            // 而且人家提供了所有配置项的默认值
+            EurekaInstanceConfig instanceConfig = isCloud(ConfigurationManager.getDeploymentContext()) //判断是否是在云环境部署的
                     ? new CloudInstanceConfig()
+                    // 自己部署都是创建这个类
+                    // 大致可以认为EurekaInstanceConfig是服务实例相关的一些配置。
+                    // eureka server同时也是一个eureka client，因为他可能要向其他的eureka server去进行注册，组成一个eureka server的集群
                     : new MyDataCenterInstanceConfig();
-            
+
+            // EurekaInstanceConfig（代表了一些配置），搞了InstanceInfo（服务实例），基于这俩玩意儿，搞了一个ApplicationInfoManager，作为服务实例的一个管理器
             applicationInfoManager = new ApplicationInfoManager(
-                    instanceConfig, new EurekaConfigBasedInstanceInfoProvider(instanceConfig).get());
-            
+                    instanceConfig,
+                    // 主要完成InstanceInfo的创建赋值
+                    // InstanceInfo可以认为就是当前这个服务实例的实例本身的信息，直接用了构造器模式，
+                    // 用InstanceInfo.Builder来构造一个复杂的代表一个服务实例的InstanceInfo对象。
+                    // 核心的思路是，从之前的那个EurekaInstanceConfig中，读取各种各样的服务实例相关的配置信息，
+                    // 再构造了几个其他的对象，最终完成了InstanceInfo的构建
+                    new EurekaConfigBasedInstanceInfoProvider(instanceConfig).get());
+            // EurekaClientConfig，这个东西也是个接口，对外暴露了获取一大堆的配置项的方法，这里包含的是EurekaClient相关的一些配置项。
+            // 也是去读eureka-client.properties里的一些配置，只不过他关注的是跟EurekaInstanceConfig是不一样的(代表了服务实例的一些配置项)
+            // 而这里的是关联的这个EurekaClient的一些配置项
             EurekaClientConfig eurekaClientConfig = new DefaultEurekaClientConfig();
+            // 重点** 创建EurekaClient
             eurekaClient = new DiscoveryClient(applicationInfoManager, eurekaClientConfig);
         } else {
             applicationInfoManager = eurekaClient.getApplicationInfoManager();
@@ -207,7 +234,7 @@ public class EurekaBootStrap implements ServletContextListener {
             );
         }
 
-        // 第四步：处理peer节点相关的事情
+        // 第四步：处理peer节点相关（eureka server集群的信息）的事情
         PeerEurekaNodes peerEurekaNodes = getPeerEurekaNodes(
                 registry,
                 eurekaServerConfig,
