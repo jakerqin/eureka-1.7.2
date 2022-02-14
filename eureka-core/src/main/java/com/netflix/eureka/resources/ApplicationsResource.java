@@ -108,6 +108,7 @@ public class ApplicationsResource {
      *
      * @return a response containing information about all {@link com.netflix.discovery.shared.Applications}
      *         from the {@link AbstractInstanceRegistry}.
+     * 获取全量注册表的方法 方法名还不如叫getApplications呢
      */
     @GET
     public Response getContainers(@PathParam("version") String version,
@@ -140,7 +141,7 @@ public class ApplicationsResource {
             keyType = Key.KeyType.XML;
             returnMediaType = MediaType.APPLICATION_XML;
         }
-
+        // eureka server端提供一个一套短小精悍的多级缓存机制
         Key cacheKey = new Key(Key.EntityType.Application,
                 ResponseCacheImpl.ALL_APPS,
                 keyType, CurrentRequestVersion.get(), EurekaAccept.fromString(eurekaAccept), regions

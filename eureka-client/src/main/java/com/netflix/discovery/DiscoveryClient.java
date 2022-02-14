@@ -421,7 +421,7 @@ public class DiscoveryClient implements EurekaClient {
 
         //如果要抓取注册表的话，在这里就会去抓取注册表了，但是如果说你配置了不抓取，那么这里就不抓取了
         if (clientConfig.shouldFetchRegistry() &&
-                // fetchRegistry方法抓取注册表信息
+                // fetchRegistry方法抓取注册表信息(刚启动是全量抓取)
                 !fetchRegistry(false)) {
             // 如果抓取失败，从备用抓取
             fetchRegistryFromBackup();
@@ -947,9 +947,10 @@ public class DiscoveryClient implements EurekaClient {
         try {
             // If the delta is disabled or if it is the first time, get all
             // applications
+            // 获取本地缓存所有的服务实例信息
             Applications applications = getApplications();
 
-            if (clientConfig.shouldDisableDelta()
+            if (clientConfig.shouldDisableDelta()   // 是否禁用增量抓取
                     || (!Strings.isNullOrEmpty(clientConfig.getRegistryRefreshSingleVipAddress()))
                     || forceFullRegistryFetch
                     || (applications == null)
@@ -963,6 +964,7 @@ public class DiscoveryClient implements EurekaClient {
                 logger.info("Registered Applications size is zero : {}",
                         (applications.getRegisteredApplications().size() == 0));
                 logger.info("Application version is -1: {}", (applications.getVersion() == -1));
+                // 全量抓取注册表信息
                 getAndStoreFullRegistry();
             } else {
                 getAndUpdateDelta(applications);
@@ -1037,6 +1039,7 @@ public class DiscoveryClient implements EurekaClient {
      * if (update generation have not advanced (due to another thread))
      *   atomically set the registry to the new registry
      * fi
+     * 全量抓取注册表信息
      *
      * @return the full registry information.
      * @throws Throwable
@@ -1059,6 +1062,7 @@ public class DiscoveryClient implements EurekaClient {
         if (apps == null) {
             logger.error("The application is null for some reason. Not storing this information");
         } else if (fetchRegistryGeneration.compareAndSet(currentUpdateGeneration, currentUpdateGeneration + 1)) {
+            // 缓存注册表信息缓存在本地
             localRegionApps.set(this.filterAndShuffle(apps));
             logger.debug("Got full registry with apps hashcode {}", apps.getAppsHashCode());
         } else {

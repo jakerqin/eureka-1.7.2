@@ -113,7 +113,7 @@ public class ResponseCacheImpl implements ResponseCache {
             });
 
     private final ConcurrentMap<Key, Value> readOnlyCacheMap = new ConcurrentHashMap<Key, Value>();
-
+    // 注意看下面的初始化
     private final LoadingCache<Key, Value> readWriteCacheMap;
     private final boolean shouldUseReadOnlyResponseCache;
     private final AbstractInstanceRegistry registry;
@@ -129,6 +129,7 @@ public class ResponseCacheImpl implements ResponseCache {
         long responseCacheUpdateIntervalMs = serverConfig.getResponseCacheUpdateIntervalMs();
         this.readWriteCacheMap =
                 CacheBuilder.newBuilder().initialCapacity(1000)
+                        // readWriteCacheMap的定时过期 默认是180秒 在类DefaultEurekaServerConfig 里都有提供
                         .expireAfterWrite(serverConfig.getResponseCacheAutoExpirationInSeconds(), TimeUnit.SECONDS)
                         .removalListener(new RemovalListener<Key, Value>() {
                             @Override
@@ -141,17 +142,23 @@ public class ResponseCacheImpl implements ResponseCache {
                             }
                         })
                         .build(new CacheLoader<Key, Value>() {
+                            // 提供获取本地注册表信息的逻辑
                             @Override
                             public Value load(Key key) throws Exception {
                                 if (key.hasRegions()) {
                                     Key cloneWithNoRegions = key.cloneWithoutRegions();
                                     regionSpecificKeys.put(cloneWithNoRegions, key);
                                 }
+                                // 获取本地注册表信息在这里
                                 Value value = generatePayload(key);
                                 return value;
                             }
                         });
-
+        // readOnlyCacheMap的被动过期代码
+        // 默认是每隔30秒，执行一个定时调度的线程任务，TimerTask，有一个逻辑，会每隔30秒，
+        // 对readOnlyCacheMap和readWriteCacheMap中的数据进行一个比对，
+        // 如果两块数据是不一致的，那么就将readWriteCacheMap中的数据放到readOnlyCacheMap中来。
+        // 比如说readWriteCacheMap中，ALL_APPS这个key对应的缓存没了，那么最多30秒过后，就会同步到readOnelyCacheMap中去
         if (shouldUseReadOnlyResponseCache) {
             timer.schedule(getCacheUpdateTask(),
                     new Date(((System.currentTimeMillis() / responseCacheUpdateIntervalMs) * responseCacheUpdateIntervalMs)
@@ -207,8 +214,10 @@ public class ResponseCacheImpl implements ResponseCache {
         return get(key, shouldUseReadOnlyResponseCache);
     }
 
+    // 默认 useReadOnlyCache 就是true
     @VisibleForTesting
     String get(final Key key, boolean useReadOnlyCache) {
+        // 重点在 getValue()
         Value payload = getValue(key, useReadOnlyCache);
         if (payload == null || payload.getPayload().equals(EMPTY_PAYLOAD)) {
             return null;
@@ -243,6 +252,7 @@ public class ResponseCacheImpl implements ResponseCache {
     public void invalidate(String appName, @Nullable String vipAddress, @Nullable String secureVipAddress) {
         for (Key.KeyType type : Key.KeyType.values()) {
             for (Version v : Version.values()) {
+                // 把这么多参数的缓存都给他过期掉
                 invalidate(
                         new Key(Key.EntityType.Application, appName, type, v, EurekaAccept.full),
                         new Key(Key.EntityType.Application, appName, type, v, EurekaAccept.compact),
@@ -339,6 +349,9 @@ public class ResponseCacheImpl implements ResponseCache {
 
     /**
      * Get the payload in both compressed and uncompressed form.
+     * 多级缓存机制，用了两个map来做两级缓存，只读缓存map，读写缓存map，先从只读缓存里去读，如果没有的话
+     * 会从读写缓存里去读，如果还是没有？
+     * 会从eureka server的注册表中去读取
      */
     @VisibleForTesting
     Value getValue(final Key key, boolean useReadOnlyCache) {
@@ -349,6 +362,8 @@ public class ResponseCacheImpl implements ResponseCache {
                 if (currentPayload != null) {
                     payload = currentPayload;
                 } else {
+                    // readWriteCacheMap是一个复杂对象，不是一个map
+                    // 里面包含了如果读不到就从注册表中读取的逻辑
                     payload = readWriteCacheMap.get(key);
                     readOnlyCacheMap.put(key, payload);
                 }
@@ -365,6 +380,7 @@ public class ResponseCacheImpl implements ResponseCache {
      * Generate pay load with both JSON and XML formats for all applications.
      */
     private String getPayLoad(Key key, Applications apps) {
+        // serverCodecs 相当于是 json序列化的组件
         EncoderWrapper encoderWrapper = serverCodecs.getEncoder(key.getType(), key.getEurekaAccept());
         String result;
         try {
@@ -406,13 +422,14 @@ public class ResponseCacheImpl implements ResponseCache {
             switch (key.getEntityType()) {
                 case Application:
                     boolean isRemoteRegionRequested = key.hasRegions();
-
+                    // 如果是获取所有的本地注册表信息
                     if (ALL_APPS.equals(key.getName())) {
                         if (isRemoteRegionRequested) {
                             tracer = serializeAllAppsWithRemoteRegionTimer.start();
                             payload = getPayLoad(key, registry.getApplicationsFromMultipleRegions(key.getRegions()));
                         } else {
                             tracer = serializeAllAppsTimer.start();
+                            // 调用registry.getApplications() 获取所有本地注册表信息
                             payload = getPayLoad(key, registry.getApplications());
                         }
                     } else if (ALL_APPS_DELTA.equals(key.getName())) {

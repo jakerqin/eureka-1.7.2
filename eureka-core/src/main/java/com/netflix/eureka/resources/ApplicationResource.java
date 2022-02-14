@@ -181,7 +181,7 @@ public class ApplicationResource {
                 }
             }
         }
-
+        // PeerAwareInstanceRegistry 包含所有服务实例的注册表信息
         registry.register(info, "true".equals(isReplication));
         return Response.status(204).build();  // 204 to be backwards compatible
     }
