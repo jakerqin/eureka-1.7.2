@@ -223,6 +223,7 @@ public class ApplicationsResource {
         }
 
         Key cacheKey = new Key(Key.EntityType.Application,
+                // 走的还是 ALL_APPS_DELTA，注意这个，在ResponseCacheImpl.generatePayload()方法有区分
                 ResponseCacheImpl.ALL_APPS_DELTA,
                 keyType, CurrentRequestVersion.get(), EurekaAccept.fromString(eurekaAccept), regions
         );
