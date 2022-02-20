@@ -187,6 +187,8 @@ public class ApplicationsResource {
      * @param uriInfo  the {@link java.net.URI} information of the request made.
      * @return response containing the delta information of the
      *         {@link AbstractInstanceRegistry}.
+     *
+     * 抓取增量数据表
      */
     @Path("delta")
     @GET

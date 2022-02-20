@@ -846,7 +846,7 @@ public class DiscoveryClient implements EurekaClient {
     boolean renew() {
         EurekaHttpResponse<InstanceInfo> httpResponse;
         try {
-            // http://localhost:8080/v2/apps/ServiceA/i-000000-1
+            // http://localhost:8080/v2/apps/ServiceA/i-000000-1 put请求
             httpResponse = eurekaTransport.registrationClient.sendHeartBeat(instanceInfo.getAppName(), instanceInfo.getId(), instanceInfo, null);
             logger.debug("{} - Heartbeat status: {}", PREFIX + appPathIdentifier, httpResponse.getStatusCode());
             if (httpResponse.getStatusCode() == 404) {
@@ -884,6 +884,7 @@ public class DiscoveryClient implements EurekaClient {
     /**
      * Shuts down Eureka Client. Also sends a deregistration request to the
      * eureka server.
+     * 关闭client 并发送注销请求
      */
     @PreDestroy
     @Override
@@ -894,19 +895,21 @@ public class DiscoveryClient implements EurekaClient {
             if (statusChangeListener != null && applicationInfoManager != null) {
                 applicationInfoManager.unregisterStatusChangeListener(statusChangeListener.getId());
             }
-
+            // 将线程池都给shutdown掉了，释放资源，停止运行的线程
             cancelScheduledTasks();
 
             // If APPINFO was registered
             if (applicationInfoManager != null && clientConfig.shouldRegisterWithEureka()) {
+                // 将服务实例的状态设置为：done
                 applicationInfoManager.setInstanceStatus(InstanceStatus.DOWN);
+                // 取消注册，核心逻辑**重点**
                 unregister();
             }
-
+            // 关闭网络服务的资源
             if (eurekaTransport != null) {
                 eurekaTransport.shutdown();
             }
-
+            // 关闭监听器
             heartbeatStalenessMonitor.shutdown();
             registryStalenessMonitor.shutdown();
 
@@ -922,6 +925,7 @@ public class DiscoveryClient implements EurekaClient {
         if(eurekaTransport != null && eurekaTransport.registrationClient != null) {
             try {
                 logger.info("Unregistering ...");
+                // 向eureka server 发送请求 http://localhost:8080/v2/apps/ServiceA/i-00000-1，delete请求
                 EurekaHttpResponse<Void> httpResponse = eurekaTransport.registrationClient.cancel(instanceInfo.getAppName(), instanceInfo.getId());
                 logger.info(PREFIX + appPathIdentifier + " - deregister  status: " + httpResponse.getStatusCode());
             } catch (Exception e) {
@@ -1516,7 +1520,7 @@ public class DiscoveryClient implements EurekaClient {
                     instanceRegionChecker.getAzToRegionMapper().refreshMapping();
                 }
             }
-            // 抓取 remoteRegionsModified 是false
+            // 抓取。 remoteRegionsModified 是false
             boolean success = fetchRegistry(remoteRegionsModified);
             if (success) {
                 registrySize = localRegionApps.get().size();

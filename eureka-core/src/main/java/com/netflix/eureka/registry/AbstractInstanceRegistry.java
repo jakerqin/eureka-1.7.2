@@ -316,8 +316,10 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             Map<String, Lease<InstanceInfo>> gMap = registry.get(appName);
             Lease<InstanceInfo> leaseToCancel = null;
             if (gMap != null) {
+                // 从本地注册表中移除
                 leaseToCancel = gMap.remove(id);
             }
+            // 将服务实例放到最近下线的queue中
             synchronized (recentCanceledQueue) {
                 recentCanceledQueue.add(new Pair<Long, String>(System.currentTimeMillis(), appName + "(" + id + ")"));
             }
@@ -330,17 +332,21 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 logger.warn("DS: Registry: cancel failed because Lease is not registered for: {}/{}", appName, id);
                 return false;
             } else {
+                // 调用Lease的cancel方法
                 leaseToCancel.cancel();
                 InstanceInfo instanceInfo = leaseToCancel.getHolder();
                 String vip = null;
                 String svip = null;
                 if (instanceInfo != null) {
+                    // 设置这个服务实例信息状态是被删除，这样过来同步信息的服务就知道是新增还是其他操作了
+                    // 将服务实例信息扔到最近改变的队列中去，为了别人来同步信息的（这个getDeltaRetentionTask定时任务会判断并清除这些信息）
                     instanceInfo.setActionType(ActionType.DELETED);
                     recentlyChangedQueue.add(new RecentlyChangedItem(leaseToCancel));
                     instanceInfo.setLastUpdatedTimestamp();
                     vip = instanceInfo.getVIPAddress();
                     svip = instanceInfo.getSecureVipAddress();
                 }
+                // 过期掉服务实例缓存（从readWriteCacheMap中清除掉，还有一个定时任务，会定期的同步readWriteCacheMap和readOnlyCacheMap）
                 invalidateCache(appName, vip, svip);
                 logger.info("Cancelled instance {}/{} (replication={})", appName, id, isReplication);
                 return true;
@@ -1217,6 +1223,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
 
     private void invalidateCache(String appName, @Nullable String vipAddress, @Nullable String secureVipAddress) {
         // invalidate cache
+        // 从readWriteCacheMap中清理掉（还不清理readOnlyCacheMap）
         responseCache.invalidate(appName, vipAddress, secureVipAddress);
     }
 
