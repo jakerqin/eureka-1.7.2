@@ -104,10 +104,15 @@ public class Lease<T> {
      * what it should be, the expiry will actually be 2 * duration. This is a minor bug and should only affect
      * instances that ungracefully shutdown. Due to possible wide ranging impact to existing usage, this will
      * not be fixed.
-     *
+     * 这边是一个小bug，而且官方还不打算解决
+     * 请注意，由于 renew() 做了“错误”的事情并将 lastUpdateTimestamp 设置为 +duration 超过应有的时间，
+     * 到期实际上将是 2*duration 持续时间。这是一个小错误，应该只影响不正常关闭的实例。
      * @param additionalLeaseMs any additional lease time to add to the lease evaluation in ms.
      */
     public boolean isExpired(long additionalLeaseMs) {
+        // 看上面的注释可以发现源码和官方的说明有差别。官方说90s没有收到心跳就任务宕机了，其实代码上是180s才认为宕机
+        // 所以180s才会认为服务宕机，然后失效多级缓存，30s的定时任务之后才会同步，服务30s才会重新抓取增量数据，
+        // 所以要大于180s其他eureka 服务才会感知到
         return (evictionTimestamp > 0 || System.currentTimeMillis() > (lastUpdateTimestamp + duration + additionalLeaseMs));
     }
 

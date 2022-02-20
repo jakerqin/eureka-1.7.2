@@ -253,6 +253,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         }
         logger.info("Changing status to UP");
         applicationInfoManager.setInstanceStatus(InstanceStatus.UP);
+        // 启动一个线程 服务实例自动故障感知及服务自动摘除功能逻辑
+        // 感觉这个定时任务应该放到PeerAwareInstanceRegistryImpl初始化的时候，感觉更符合软件设计
         super.postInit();
     }
 
