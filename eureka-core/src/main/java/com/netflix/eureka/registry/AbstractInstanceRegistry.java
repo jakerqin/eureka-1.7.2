@@ -353,24 +353,30 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
     /**
      * Marks the given instance of the given app name as renewed, and also marks whether it originated from
      * replication.
-     *
+     * 从注册表的map中，根据服务名和实例id，获取一个Lease<InstanceInfo>，
+     * 对服务续约的代码进行了调整，让代码可读性更好，更加的优雅。实际的服务续约的逻辑，
+     * 其实就是在Lease对象中，更新一下lastUpdateTimestamp这个时间戳
      * @see com.netflix.eureka.lease.LeaseManager#renew(java.lang.String, java.lang.String, boolean)
      */
     public boolean renew(String appName, String id, boolean isReplication) {
         RENEW.increment(isReplication);
+        // 从注册表中拿到map
         Map<String, Lease<InstanceInfo>> gMap = registry.get(appName);
         Lease<InstanceInfo> leaseToRenew = null;
         if (gMap != null) {
+            // 根据id拿到这个实例的租约信息
             leaseToRenew = gMap.get(id);
         }
         if (leaseToRenew == null) {
             RENEW_NOT_FOUND.increment(isReplication);
             logger.warn("DS: Registry: lease doesn't exist, registering resource: {} - {}", appName, id);
             return false;
-        } else {
+        } else { // 编码：这个 else 完全可以去掉 因为如果走进上面的if，肯定会return的
             InstanceInfo instanceInfo = leaseToRenew.getHolder();
+            // 编码： 这个完全可以写 if (instanceInfo = null) {log.xxx； return} 这样没有那么多的if else，逻辑看起来顺眼
             if (instanceInfo != null) {
                 // touchASGCache(instanceInfo.getASGName());
+                // 下面都是检查代码，状态判断等 不细看  完全可以抽一个方法，这样别人看的时候，一眼知道含义，可以更快的定位自己要看的代码
                 InstanceStatus overriddenInstanceStatus = this.getOverriddenInstanceStatus(
                         instanceInfo, leaseToRenew, isReplication);
                 if (overriddenInstanceStatus == InstanceStatus.UNKNOWN) {
@@ -392,6 +398,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 }
             }
             renewsLastMin.increment();
+            // 更新lastUpdateTimestamp时间
             leaseToRenew.renew();
             return true;
         }
