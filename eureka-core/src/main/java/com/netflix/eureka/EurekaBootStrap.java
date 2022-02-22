@@ -259,9 +259,10 @@ public class EurekaBootStrap implements ServletContextListener {
         logger.info("Initialized server context");
 
         // Copy registry from neighboring eureka node
-        // 第六步：从相邻的eureka节点拷贝注册信息
+        // 第六步：从相邻的eureka节点拷贝注册信息，并返回服务实例数量
         int registryCount = registry.syncUp();
         // 这个方法含有 服务实例自动故障感知及服务自动摘除功能逻辑
+        // 初始化numberOfRenewsPerMinThreshold 期望1分钟得有多少次心跳
         // 唉 eureka的代码写的感觉和别的开源项目差距很大，这功能和方法名根本就对不上，能把人看死
         registry.openForTraffic(applicationInfoManager, registryCount);
 

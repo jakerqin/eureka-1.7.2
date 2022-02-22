@@ -220,13 +220,17 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                     registrant = existingLease.getHolder();
                 }
             } else {
+                // 是一个新的租约
                 // The lease does not exist and hence it is a new registration
                 synchronized (lock) {
                     if (this.expectedNumberOfRenewsPerMin > 0) {
                         // Since the client wants to cancel it, reduce the threshold
                         // (1
                         // for 30 seconds, 2 for a minute)
+                        // hard code 写的简直就是个笑话
+                        // 如果每30s发送一次心跳变了，那就不能是 + 2 了，bug
                         this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin + 2;
+                        // 新注册， 更新每分钟期望心跳数
                         this.numberOfRenewsPerMinThreshold =
                                 (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
                     }
@@ -607,14 +611,23 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
     }
 
     /**
-     *
+     * 故障服务实例清除
+     * 问题：故障的时候，摘除一个服务实例，居然没找到更新期望心跳次数的代码。应该是个bug，
+     * 如果说有很多的服务实例都是故障下线的，摘除了。结果每分钟期望的心跳次数并没有减少，但是实际的服务实例变少了一些，就会导致实际的心跳次数变少，
+     * 如果说出现较多的服务实例故障被自动摘除的话，很可能会快速导致eureka server进自我保护机制。就不会再摘除任何服务实例了
      * @param additionalLeaseMs 两次任务调度的补偿时间（假设60s调度一次，第一次是20:00:00, 第二次是20:02:00，那么补偿时间就是60s）
      */
     public void evict(long additionalLeaseMs) {
         logger.debug("Running the evict task");
-        // 是否允许主动删除掉故障的服务实例---更自我包含相关
+
+        // 是否允许主动删除掉故障的服务实例---跟自我保护相关
+        // 自我保护机制的意思：假如说，20个服务实例，结果在1分钟之内，只有8个服务实例保持了心跳，应该将剩余的12个没有心跳的服务实例都摘除吗？
+        // 可能是，eureka server自己网络故障了，那些服务没问题的。只不过eureka server自己的机器所在的网络故障了，
+        // 导致那些服务的心跳发送不过来。就导致eureka server本地一直没有更新心跳。
         if (!isLeaseExpirationEnabled()) {
             logger.debug("DS: lease expiration is currently disabled.");
+            // isLeaseExpirationEnabled() 会判断上一分钟的心跳次数，是否小于我期望的一分钟的心跳次数，
+            // 如果小于，那么压根儿就不让清理任何服务实例
             return;
         }
 
