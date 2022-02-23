@@ -364,7 +364,6 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
      * Marks the given instance of the given app name as renewed, and also marks whether it originated from
      * replication.
      * 从注册表的map中，根据服务名和实例id，获取一个Lease<InstanceInfo>，
-     * 对服务续约的代码进行了调整，让代码可读性更好，更加的优雅。实际的服务续约的逻辑，
      * 其实就是在Lease对象中，更新一下lastUpdateTimestamp这个时间戳
      * @see com.netflix.eureka.lease.LeaseManager#renew(java.lang.String, java.lang.String, boolean)
      */
@@ -407,6 +406,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                     instanceInfo.setStatusWithoutDirty(overriddenInstanceStatus);
                 }
             }
+            // 记录最近一分钟心跳数组件自增
             renewsLastMin.increment();
             // 更新lastUpdateTimestamp时间
             leaseToRenew.renew();

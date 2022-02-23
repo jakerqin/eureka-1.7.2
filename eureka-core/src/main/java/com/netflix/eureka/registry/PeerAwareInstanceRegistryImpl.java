@@ -501,6 +501,8 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         // getNumOfRenewsInLastMin() --->    上一分钟所有服务实例一共发送过来多少次心跳，假设是102次
         // 如果上一分钟的心跳次数(102次) > 期望的100次，返回true，那么就可以清理故障的服务实例
         // 如果上一分钟中心跳次数太多（20次） < 期望的100次，此时会返回false
+
+        // getNumOfRenewsInLastMin() 记录实际上一分钟的心跳数，这一块逻辑应在心跳续约中，应该是renews()
         return numberOfRenewsPerMinThreshold > 0 && getNumOfRenewsInLastMin() > numberOfRenewsPerMinThreshold;
     }
 
@@ -540,8 +542,11 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
      */
     private void updateRenewalThreshold() {
         try {
+            // 将自己作为eureka client，从其他的eureka server拉取注册表
+            // 合并到自己的本地去
             Applications apps = eurekaClient.getApplications();
             int count = 0;
+            // 将别的服务拉取的服务实例的数量作为count
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
                     if (this.isRegisterable(instance)) {
