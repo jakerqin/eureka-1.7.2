@@ -236,6 +236,7 @@ public class EurekaBootStrap implements ServletContextListener {
         }
 
         // 第四步：处理peer节点相关（eureka server集群的信息）的事情
+        // 在下面的 serverContext.initialize()里面会调用peerEurekaNodes.start()进行初始化
         PeerEurekaNodes peerEurekaNodes = getPeerEurekaNodes(
                 registry,
                 eurekaServerConfig,
@@ -259,7 +260,7 @@ public class EurekaBootStrap implements ServletContextListener {
         logger.info("Initialized server context");
 
         // Copy registry from neighboring eureka node
-        // 第六步：从相邻的eureka节点拷贝注册信息，并返回服务实例数量
+        // 第六步：根据eureka client从相邻(任意)的eureka serve节点拷贝注册信息，计算并返回服务实例数量
         int registryCount = registry.syncUp();
         // 这个方法含有 服务实例自动故障感知及服务自动摘除功能逻辑
         // 初始化numberOfRenewsPerMinThreshold 期望1分钟得有多少次心跳

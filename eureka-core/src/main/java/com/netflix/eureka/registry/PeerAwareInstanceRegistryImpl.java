@@ -210,16 +210,18 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     public int syncUp() {
         // Copy entire entry from neighboring DS node
         int count = 0;
-
+        // serverConfig.getRegistrySyncRetries() 默认5次重试
         for (int i = 0; ((i < serverConfig.getRegistrySyncRetries()) && (count == 0)); i++) {
-            if (i > 0) {
+            if (i > 0) {  // 说明前几次拉取失败，可能本地的eureka client还没有从相邻eureka serve上拉取来数据
                 try {
+                    // 这里休眠一段时间，等待eureka client从相邻eureka serve上进行注册并拉取来全量的注册表信息
                     Thread.sleep(serverConfig.getRegistrySyncRetryWaitMs());
                 } catch (InterruptedException e) {
                     logger.warn("Interrupted during registry transfer..");
                     break;
                 }
             }
+            // 获取本地的注册表信息，如果没有那么count就一直是0，上面for循环会一直走
             Applications apps = eurekaClient.getApplications();
             for (Application app : apps.getRegisteredApplications()) {
                 for (InstanceInfo instance : app.getInstances()) {
@@ -422,6 +424,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
         }
         // **进行注册
         super.register(info, leaseDuration, isReplication);
+        // 将这次注册请求，同步到其他所有的eureka server上去
         replicateToPeers(Action.Register, info.getAppName(), info.getId(), info, null, isReplication);
     }
 
@@ -644,6 +647,10 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
     private void replicateToPeers(Action action, String appName, String id,
                                   InstanceInfo info /* optional */,
                                   InstanceStatus newStatus /* optional */, boolean isReplication) {
+        // 上面的isReplication在当前eureka serve收到那就是false
+        // 因为当前serve执行了注册、心跳等心跳之后会同步给其他eureka serve
+        // 但是其他eureka serve收到这个请求时这个isReplication参数是true（在同步发送请求的时候会把这个参数设置成true）
+        // 因为它不能再向其他serve进行同步了，不然就是死循环了
         Stopwatch tracer = action.getTimer().start();
         try {
             if (isReplication) {
@@ -659,6 +666,7 @@ public class PeerAwareInstanceRegistryImpl extends AbstractInstanceRegistry impl
                 if (peerEurekaNodes.isThisMyUrl(node.getServiceUrl())) {
                     continue;
                 }
+                // 同步
                 replicateInstanceActionsToPeers(action, appName, id, info, newStatus, node);
             }
         } finally {

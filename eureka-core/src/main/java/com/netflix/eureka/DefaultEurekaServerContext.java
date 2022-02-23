@@ -61,6 +61,9 @@ public class DefaultEurekaServerContext implements EurekaServerContext {
     @Override
     public void initialize() throws Exception {
         logger.info("Initializing ...");
+        // 解析配置文件中的其他eureka server的url地址，
+        // 基于url地址构造一个一个的PeerEurekaNode，一个PeerEurekaNode就代表了一个eureka server。
+        // 启动一个后台的线程，默认是每隔10分钟，会运行一个任务，就是基于配置文件中的url来刷新eureka server列表。
         peerEurekaNodes.start();
         registry.init(peerEurekaNodes);
         logger.info("Initialized");

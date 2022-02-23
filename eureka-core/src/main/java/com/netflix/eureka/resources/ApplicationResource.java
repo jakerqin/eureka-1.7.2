@@ -138,6 +138,7 @@ public class ApplicationResource {
      * @param isReplication
      *            a header parameter containing information whether this is
      *            replicated from other nodes.
+     * 注册一个服务实例
      */
     @POST
     @Consumes({"application/json", "application/xml"})
@@ -145,6 +146,7 @@ public class ApplicationResource {
                                 @HeaderParam(PeerEurekaNode.HEADER_REPLICATION) String isReplication) {
         logger.debug("Registering instance {} (replication={})", info.getId(), isReplication);
         // validate that the instanceinfo contains all the necessary required fields
+        // 典型的防御性编程
         if (isBlank(info.getId())) {
             return Response.status(400).entity("Missing instanceId").build();
         } else if (isBlank(info.getHostName())) {
@@ -182,6 +184,8 @@ public class ApplicationResource {
             }
         }
         // PeerAwareInstanceRegistry 包含所有服务实例的注册表信息
+        // 负责注册，先在自己本地完成一个注册，接着会调用replicateToPeers()方法，
+        // 这个方法就会将这次注册请求，同步到其他所有的eureka server上去
         registry.register(info, "true".equals(isReplication));
         return Response.status(204).build();  // 204 to be backwards compatible
     }

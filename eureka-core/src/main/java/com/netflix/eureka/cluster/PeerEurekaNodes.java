@@ -85,7 +85,10 @@ public class PeerEurekaNodes {
                 }
         );
         try {
+            // resolvePeerUrls() 解析配置文件中的其他eureka server的url地址返回
+            // 就是基于配置文件中的url来刷新eureka server列表。
             updatePeerEurekaNodes(resolvePeerUrls());
+            // 定义一个线程任务
             Runnable peersUpdateTask = new Runnable() {
                 @Override
                 public void run() {
@@ -97,6 +100,7 @@ public class PeerEurekaNodes {
 
                 }
             };
+            // 每十分钟启动定时任务，就是基于配置文件中的url来刷新eureka server列表。
             taskExecutor.scheduleWithFixedDelay(
                     peersUpdateTask,
                     serverConfig.getPeerEurekaNodesUpdateIntervalMs(),
@@ -156,7 +160,7 @@ public class PeerEurekaNodes {
             logger.warn("The replica size seems to be empty. Check the route 53 DNS Registry");
             return;
         }
-
+        // 下面的逻辑没什么重要的，很多时候走不进去
         Set<String> toShutdown = new HashSet<>(peerEurekaNodeUrls);
         toShutdown.removeAll(newPeerUrls);
         Set<String> toAdd = new HashSet<>(newPeerUrls);
@@ -186,7 +190,9 @@ public class PeerEurekaNodes {
         // Add new peers
         if (!toAdd.isEmpty()) {
             logger.info("Adding new peer nodes {}", toAdd);
+            // 添加新peer，也就是eureka server
             for (String peerUrl : toAdd) {
+                // createPeerEurekaNode(peerUrl) 构建PeerEurekaNode
                 newNodeList.add(createPeerEurekaNode(peerUrl));
             }
         }
