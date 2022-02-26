@@ -82,6 +82,7 @@ public class PeerReplicationResource {
             ReplicationListResponse batchResponse = new ReplicationListResponse();
             for (ReplicationInstance instanceInfo : replicationList.getReplicationList()) {
                 try {
+                    // dispatch()判断信息的action，分配到对应的action来处理
                     batchResponse.addResponse(dispatch(instanceInfo));
                 } catch (Exception e) {
                     batchResponse.addResponse(new ReplicationInstanceResponse(Status.INTERNAL_SERVER_ERROR.getStatusCode(), null));
@@ -135,6 +136,7 @@ public class PeerReplicationResource {
     }
 
     private static Builder handleRegister(ReplicationInstance instanceInfo, ApplicationResource applicationResource) {
+        // 走controller层的单个注册请求逻辑
         applicationResource.addInstance(instanceInfo.getInstanceInfo(), REPLICATION);
         return new Builder().setStatusCode(Status.OK.getStatusCode());
     }

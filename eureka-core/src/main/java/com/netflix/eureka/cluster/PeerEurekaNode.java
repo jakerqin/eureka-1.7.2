@@ -133,6 +133,10 @@ public class PeerEurekaNode {
      */
     public void register(final InstanceInfo info) throws Exception {
         long expiryTime = System.currentTimeMillis() + getLeaseRenewalOf(info);
+        // 数据同步的异步批处理机制，
+        // 三个队列，第一个队列(acceptorQueue)，就是纯写入
+        // 第二队列，是用来根据时间和大小()，来拆分队列
+        // 第三个队列，用来存放批处理任务
         batchingDispatcher.process(
                 taskId("register", info),
                 new InstanceReplicationTask(targetHost, Action.Register, info, null, true) {

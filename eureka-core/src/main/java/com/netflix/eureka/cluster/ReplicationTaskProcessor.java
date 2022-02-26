@@ -64,10 +64,16 @@ class ReplicationTaskProcessor implements TaskProcessor<ReplicationTask> {
         return ProcessingResult.Success;
     }
 
+    /**
+     * 从batchWorkQueue队列中拿到同步任务的数据
+     * @param tasks
+     * @return
+     */
     @Override
     public ProcessingResult process(List<ReplicationTask> tasks) {
         ReplicationList list = createReplicationListOf(tasks);
         try {
+            // 发送网络请求：http://localhost:8080/v2/peerreplication/batch/
             EurekaHttpResponse<ReplicationListResponse> response = replicationClient.submitBatchUpdates(list);
             int statusCode = response.getStatusCode();
             if (!isSuccess(statusCode)) {

@@ -192,6 +192,7 @@ class AcceptorExecutor<ID, T> {
                         scheduleTime = now + trafficShaper.transmissionDelay();
                     }
                     if (scheduleTime <= now) {
+                        // 判断
                         assignBatchWork();
                         assignSingleItemWork();
                     }
@@ -217,6 +218,7 @@ class AcceptorExecutor<ID, T> {
         private void drainInputQueues() throws InterruptedException {
             do {
                 drainReprocessQueue();
+                // while循环从acceptQueue中消费数据放到processingOrder
                 drainAcceptorQueue();
 
                 if (!isShutdown.get()) {
@@ -233,6 +235,7 @@ class AcceptorExecutor<ID, T> {
 
         private void drainAcceptorQueue() {
             while (!acceptorQueue.isEmpty()) {
+                // 放到processingOrder队列中去
                 appendTaskHolder(acceptorQueue.poll());
             }
         }
@@ -264,6 +267,7 @@ class AcceptorExecutor<ID, T> {
             }
             TaskHolder<ID, T> previousTask = pendingTasks.put(taskHolder.getId(), taskHolder);
             if (previousTask == null) {
+                // 放到processingOrder队列中去
                 processingOrder.add(taskHolder.getId());
             } else {
                 overriddenTasks++;
@@ -293,11 +297,13 @@ class AcceptorExecutor<ID, T> {
                 if (batchWorkRequests.tryAcquire(1)) {
                     long now = System.currentTimeMillis();
                     int len = Math.min(maxBatchingSize, processingOrder.size());
+                    // 初始化batch
                     List<TaskHolder<ID, T>> holders = new ArrayList<>(len);
                     while (holders.size() < len && !processingOrder.isEmpty()) {
                         ID id = processingOrder.poll();
                         TaskHolder<ID, T> holder = pendingTasks.remove(id);
                         if (holder.getExpiryTime() > now) {
+                            // 添加进batch中
                             holders.add(holder);
                         } else {
                             expiredTasks++;
@@ -307,6 +313,7 @@ class AcceptorExecutor<ID, T> {
                         batchWorkRequests.release();
                     } else {
                         batchSizeMetric.record(holders.size(), TimeUnit.MILLISECONDS);
+                        // 把batch放到batchWorkQueue队列
                         batchWorkQueue.add(holders);
                     }
                 }
@@ -322,7 +329,9 @@ class AcceptorExecutor<ID, T> {
             }
 
             TaskHolder<ID, T> nextHolder = pendingTasks.get(processingOrder.peek());
+            // 获取时间间隔
             long delay = System.currentTimeMillis() - nextHolder.getSubmitTimestamp();
+            // 判断时间间隔 是否过了指定的分批间隔(500毫秒，也就是说，默认五百毫秒打一个batch)
             return delay >= maxBatchingDelay;
         }
     }
