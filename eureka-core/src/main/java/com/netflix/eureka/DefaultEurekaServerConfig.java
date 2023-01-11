@@ -114,7 +114,7 @@ public class DefaultEurekaServerConfig implements EurekaServerConfig {
         try {
             // 从配置文件中加载属性进ConfigurationManager
             // 步骤：将eureka-server跟.properties给拼接起来了，拼接成一个eureka-server.properties，代表了eureka server的配置文件的名称。
-            // 将eureka-sesrver.properties中的配置，加载到了Properties对象中去；然后还会加载eureka-server-环境.properties中的配置，
+            // 将eureka-server.properties中的配置，加载到了Properties对象中去；然后还会加载eureka-server-环境.properties中的配置，
             // 加载到另外一个Properties中，相同属性会覆盖之前那个老的Properties中的属性
             // 将加载出来的Properties中的配置项都放到ConfigurationManager.instant中去，由这个ConfigurationManager来管理
             ConfigurationManager

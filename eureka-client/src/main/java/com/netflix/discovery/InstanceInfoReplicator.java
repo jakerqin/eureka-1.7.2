@@ -63,7 +63,8 @@ class InstanceInfoReplicator implements Runnable {
     public void start(int initialDelayMs) {
         // cas设置 如果是false那就设置成true
         if (started.compareAndSet(false, true)) {
-            instanceInfo.setIsDirty();  // for initial register
+			// for initial register （设置lastDirtyTimestamp）
+            instanceInfo.setIsDirty();
             // 把当前1个线程的线程池中延迟启动（默认延迟40秒）
             // 注意看下面的run（）方法
             Future next = scheduler.schedule(this, initialDelayMs, TimeUnit.SECONDS);

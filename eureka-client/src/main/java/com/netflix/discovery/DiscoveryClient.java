@@ -145,6 +145,7 @@ public class DiscoveryClient implements EurekaClient {
     private final Provider<HealthCheckHandler> healthCheckHandlerProvider;
     private final Provider<HealthCheckCallback> healthCheckCallbackProvider;
     private final PreRegistrationHandler preRegistrationHandler;
+	// AtomicReference主要作用依旧是用原子的方式更新对象引用。通过CAS+自旋的方式（虽然多线程同时对一个引用变量赋值不会有并发问题，一般并发访问共享资源，都是以加锁的方式，这里用的乐观锁的一种）
     private final AtomicReference<Applications> localRegionApps = new AtomicReference<Applications>();
     private final Lock fetchRegistryUpdateLock = new ReentrantLock();
     // monotonically increasing generation counter to ensure stale threads do not reset registry to an older version

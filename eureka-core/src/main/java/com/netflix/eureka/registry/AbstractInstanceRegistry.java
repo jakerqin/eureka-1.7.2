@@ -223,6 +223,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 // 是一个新的租约
                 // The lease does not exist and hence it is a new registration
                 synchronized (lock) {
+					// 期待每分钟收到的心跳数
                     if (this.expectedNumberOfRenewsPerMin > 0) {
                         // Since the client wants to cancel it, reduce the threshold
                         // (1
@@ -230,7 +231,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                         // hard code 写的简直就是个笑话
                         // 如果每30s发送一次心跳变了，那就不能是 + 2 了，bug
                         this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin + 2;
-                        // 新注册， 更新每分钟期望心跳数
+                        // 新注册，更新每分钟期望心跳数阈值
                         this.numberOfRenewsPerMinThreshold =
                                 (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
                     }
